@@ -1,15 +1,13 @@
 <template>
-    <div class="vh-100 d-flex flex-row no-padding">
-        <aside class="sidebar bg-dark d-flex flex-column align-items-start p-4">
-            <router-link to="/" class="text-white mb-5" style="font-size: 2rem; font-weight: bold; text-decoration: none;">
-                NeuronBox
-            </router-link>
+    <div class="vh-100 d-flex flex-column">
+        <header class="header bg-dark d-flex align-items-center p-4">
+            <router-link to="/" class="text-white me-5">NeuronBox</router-link>
 
-            <button class="btn btn-primary mb-3 w-100">
+            <button class="btn btn-primary btn-sm">
                 <router-link to="/transcribe" class="text-white text-decoration-none">Transcribe Audio</router-link>
             </button>
-        </aside>
-        <div class="main-content w-100 d-flex justify-content-center align-items-center">
+        </header>
+        <div class="main-content w-100 d-flex justify-content-center align-items-center flex-grow-1">
             <router-view></router-view>
         </div>
     </div>
@@ -19,21 +17,13 @@
 </script>
 
 <style>
-.no-padding {
-    padding-left: 0;
-    padding-right: 0;
-}
-
-
-.sidebar {
-    width: 250px;
-    /* Sidebar width */
+.header {
+    height: 40px;
 }
 
 .main-content {
     padding: 2rem;
     overflow-y: auto;
-    /* Enable scroll if content overflows */
 }
 
 a {
