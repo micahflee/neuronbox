@@ -2,6 +2,20 @@ import subprocess
 import signal
 
 
+def build_frontend():
+    try:
+        subprocess.run(["npm", "install"], cwd="neuronbox/frontend", check=True)
+        subprocess.run(
+            ["npm", "run", "build", "-m", "development"],
+            cwd="neuronbox/frontend",
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+
 def start_server():
     process = None
     try:

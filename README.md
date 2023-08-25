@@ -15,16 +15,13 @@ Install and build the web app:
 poetry install
 
 # Install frontend deps and build
-cd neuronbox/frontend
-npm install
-npm run build -m development
-cd ../..
+poetry run build-frontend
 ```
 
 Start the server:
 
 ```sh
-poetry run start-neuronbox
+poetry run start-server
 ```
 
 View the app at http://127.0.0.1:5000.

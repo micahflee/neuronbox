@@ -1,14 +1,16 @@
 <template>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="d-flex justify-content-center mb-4">
-                    <span class="title">NeuronBox</span>
-                </div>
-            </div>
-            <div class="col-md-9 main-content">
-                <router-view></router-view>
-            </div>
+    <div class="vh-100 d-flex flex-row no-padding">
+        <aside class="sidebar bg-dark d-flex flex-column align-items-start p-4">
+            <router-link to="/" class="text-white mb-5" style="font-size: 2rem; font-weight: bold; text-decoration: none;">
+                NeuronBox
+            </router-link>
+
+            <button class="btn btn-primary mb-3 w-100">
+                <router-link to="/transcribe" class="text-white text-decoration-none">Transcribe Audio</router-link>
+            </button>
+        </aside>
+        <div class="main-content w-100 d-flex justify-content-center align-items-center">
+            <router-view></router-view>
         </div>
     </div>
 </template>
@@ -17,18 +19,25 @@
 </script>
 
 <style>
-.title {
-    font-size: 2rem;
-    font-weight: bold;
+.no-padding {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+
+.sidebar {
+    width: 250px;
+    /* Sidebar width */
 }
 
 .main-content {
-    padding: 1rem;
+    padding: 2rem;
+    overflow-y: auto;
+    /* Enable scroll if content overflows */
 }
 
 a {
     color: #007bff;
-    text-decoration: none;
 }
 
 a:hover {

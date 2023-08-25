@@ -2,10 +2,12 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import App from './App.vue';
-import Dashboard from './Pages/Dashboard.vue';
+import Home from './Pages/Home.vue';
+import Transcribe from './Pages/Transcribe.vue';
 
 const routes = [
-    { path: '/', component: Dashboard },
+    { path: '/', component: Home },
+    { path: '/transcribe', component: Transcribe },
 ];
 
 const router = createRouter({
