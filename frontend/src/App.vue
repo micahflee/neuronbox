@@ -7,7 +7,7 @@
                 <router-link to="/transcribe" class="text-white text-decoration-none">Transcribe Audio</router-link>
             </button>
         </header>
-        <div class="main-content w-100 d-flex justify-content-center align-items-center flex-grow-1">
+        <div class="main-content w-100 d-flex flex-grow-1">
             <router-view></router-view>
         </div>
     </div>

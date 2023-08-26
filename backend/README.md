@@ -1,5 +1,7 @@
 # Backend
 
+You need Python 3 and Poetry.
+
 Install deps:
 
 ```sh

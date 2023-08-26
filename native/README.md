@@ -1,9 +1,10 @@
 # Tauri + Vanilla
 
+You need Rust installed.
+
 Start the app:
 
 ```sh
-cd native
 cargo tauri dev
 ```
 

@@ -1,6 +1,7 @@
 <template>
     <div>
         <h1>Transcribe Audio</h1>
+        <p>Choose an audio file on your computer to transcribe it.</p>
         <button @click="openFileDialog">Browse File</button>
     </div>
 </template>
