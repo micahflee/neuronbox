@@ -2,6 +2,7 @@
 
 use std::sync::mpsc;
 use tauri::api::dialog::FileDialogBuilder;
+use tauri::api::dialog::{MessageDialogBuilder, MessageDialogKind, MessageDialogButtons};
 
 #[derive(serde::Deserialize)]
 struct Params;
@@ -13,7 +14,7 @@ struct Response {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![select_file])
+        .invoke_handler(tauri::generate_handler![select_file, message_dialog])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -37,4 +38,22 @@ async fn select_file() -> String {
     } else {
         received_path
     }
+}
+
+#[tauri::command]
+fn message_dialog(title: String, message: String, kind: String) {
+    let dialog_kind = match kind.as_str() {
+        "info" => MessageDialogKind::Info,
+        "warning" => MessageDialogKind::Warning,
+        "error" => MessageDialogKind::Error,
+        _ => {
+            eprintln!("Unknown kind '{}', defaulting to 'Info'", kind);
+            MessageDialogKind::Info
+        }
+    };
+    
+    MessageDialogBuilder::new(&title, &message)
+        .kind(dialog_kind)
+        .buttons(MessageDialogButtons::Ok)
+        .show(|_| {});
 }

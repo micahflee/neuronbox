@@ -17,7 +17,7 @@ def add_cors_headers(response):
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    filename = request.form.get("filename")
+    filename = request.json.get("filename")
 
     try:
         # Make sure file exists
@@ -26,9 +26,10 @@ def transcribe():
         
         # Check that the file is an audio file (.wav, .mp3, .flac)
         if not filename.endswith(".wav") and not filename.endswith(".mp3") and not filename.endswith(".flac"):
-            return jsonify({"error": "File is not an audio file"})
-    except:
-        return jsonify({"error": "Invalid file"})
+            basename = os.path.basename(filename)
+            return jsonify({"error": f"{basename} is not an audio file"})
+    except Exception as e:
+        return jsonify({"error": f"Invalid file: {e}"})
     
     transcription = transcribe(filename)
     return jsonify(transcription)

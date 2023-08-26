@@ -21,27 +21,22 @@
                 </select>
             </div>
 
-            <button type="submit" class="btn btn-primary">Transcribe</button>
+            <button type="submit" class="btn btn-primary" :disabled="isSubmitDisabled">Transcribe</button>
         </form>
-
-        <Error v-if="showError" :message="errorMessage" @close="showError = false"></Error>
     </div>
 </template>
   
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import axios from 'axios';
-
-import Error from '../Components/Error.vue';
-
-const showError = ref(false);
-const errorMessage = ref('');
 
 const formData = ref({
     filename: '',
     model: 'small'
 });
+
+const isSubmitDisabled = computed(() => !formData.value.filename);
 
 async function openFileDialog() {
     invoke('select_file').then(filename => {
@@ -59,8 +54,11 @@ async function submitForm() {
         const response = await axios.post('http://127.0.0.1:52014/transcribe', formData.value);
         const data = response.data;
         if (data.error) {
-            errorMessage.value = data.error;
-            showError.value = true;
+            invoke('message_dialog', {
+                title: 'Transcription Error',
+                message: data.error,
+                kind: 'error'
+            });
         } else {
             // Handle successful response
             console.log("Successful response received.", data);

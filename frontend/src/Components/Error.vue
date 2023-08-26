@@ -17,23 +17,33 @@
     </div>
 </template>
   
-<script>
-export default {
-    props: {
-        message: {
-            type: String,
-            required: true
-        }
-    },
-    methods: {
-        closeModal() {
-            this.$emit('close');
-        },
-        showModal() {
-            const modal = new bootstrap.Modal(this.$el);
-            modal.show();
-        }
+<script setup>
+import { ref, defineProps, watchEffect } from 'vue';
+
+const showError = ref(false);
+
+let errorModal;
+const setModalRef = (el) => {
+    errorModal = el;
+};
+
+watchEffect(() => {
+    if (showError.value && errorModal) {
+        errorModal.showModal();
     }
-}
+});
+
+const props = defineProps(['message']);
+
+const closeModal = () => {
+    const modal = new bootstrap.Modal(props.$el);
+    modal.hide();
+    emit('close');
+};
+
+const showModal = () => {
+    const modal = new bootstrap.Modal(props.$el);
+    modal.show();
+};
+
 </script>
-  
