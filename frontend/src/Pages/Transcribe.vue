@@ -69,16 +69,12 @@ async function openFileDialog() {
 async function submitForm() {
     try {
         const response = await axios.post(`${API_URL}/transcribe`, formData.value);
-        const data = response.data;
-        if (data.error) {
+        if (!response.data.success) {
             invoke('message_dialog', {
-                title: 'Transcription Error',
-                message: data.error,
+                title: 'Transcription error',
+                message: response.data.error,
                 kind: 'error'
             });
-        } else {
-            // Handle successful response
-            console.log("Successful response received.", data);
         }
     } catch (error) {
         console.error("There was an issue submitting the form:", error);

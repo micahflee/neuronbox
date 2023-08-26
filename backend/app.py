@@ -1,32 +1,26 @@
 import os
 import time
+import traceback
 
 import requests
 from flask import Flask, jsonify, request, stream_with_context
+from flask_cors import CORS
 from tqdm import tqdm
 
 import common
 from transcribe import do_transcribe, whisper
 
 app = Flask(__name__)
-
-# Global dictionary to hold download progress
-download_progress = {}
+CORS(app)  # TODO: restrict origins to just localhost
 
 
-@app.after_request
-def add_cors_headers(response):
-    origin = request.headers.get("Origin", "")
-    if origin.startswith("http://127.0.0.1:"):
-        response.headers.add("Access-Control-Allow-Origin", origin)
-        response.headers.add(
-            "Access-Control-Allow-Headers", "Content-Type,Authorization"
-        )
-        response.headers.add(
-            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
-        )
-
-    return response
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Capture the stack trace
+    trace = traceback.format_exc()
+    # Log it, send it to an external service, etc.
+    app.logger.error(trace)
+    return str(e), 500
 
 
 # Models
@@ -63,19 +57,19 @@ def models():
                 "transcribe": [
                     {
                         "name": "small",
-                        "description": "Small, required VRAM ~2GB",
+                        "description": "Small, requires ~2GB RAM",
                         "downloaded": whispers_small_downloaded,
                         "size": whispers_small_size,
                     },
                     {
                         "name": "medium",
-                        "description": "Medium, required VRAM ~5 GB",
+                        "description": "Medium, requires ~5GB RAM (recommended)",
                         "downloaded": whispers_medium_downloaded,
                         "size": whispers_medium_size,
                     },
                     {
                         "name": "large",
-                        "description": "Large, required VRAM ~10 GB",
+                        "description": "Large, requires ~10GB RAM",
                         "downloaded": whispers_large_downloaded,
                         "size": whispers_large_size,
                     },
@@ -90,8 +84,9 @@ def models_download():
     feature = request.json.get("feature")
     model = request.json.get("model")
     key = f"{feature}_{model}"
+
     print(f"Starting download: {key}")
-    download_progress[key] = 0
+    common.create_status_file(key)
 
     if feature not in ["transcribe"]:
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
@@ -102,7 +97,9 @@ def models_download():
 
         download_url = whisper._MODELS[model]
         filename = os.path.join(common.get_models_dir(), "whisper", f"{model}.pt")
-        print(f"Downloading {download_url} to {filename}")
+        print(f"Key: {key}: Downloading {download_url} to {filename}")
+
+        canceled_early = False
 
         try:
             with requests.get(download_url, stream=True) as r:
@@ -114,10 +111,23 @@ def models_download():
                     for data in r.iter_content(block_size):
                         f.write(data)
                         progress.update(len(data))
-                        download_progress[key] = (progress.n / total_size) * 100
+                        common.update_status_file(key, (progress.n / total_size) * 100)
+
+                        # Canceled early?
+                        if not common.read_status_file(key):
+                            print("Canceled download detected, deleting partial model")
+                            canceled_early = True
+                            try:
+                                os.remove(filename)
+                            except FileNotFoundError:
+                                pass
+                            break
+
                 progress.close()
 
-                if total_size != 0 and progress.n != total_size:
+                common.delete_status_file(key)
+
+                if not canceled_early and total_size != 0 and progress.n != total_size:
                     error_message = "Downloaded data size does not match expected size"
                     print(f"Error: {error_message}")
                     return jsonify(
@@ -132,6 +142,8 @@ def models_download():
             requests.Timeout,
             requests.RequestException,
         ) as e:
+            common.delete_status_file(key)
+
             # Delete the model if the download has started
             try:
                 os.remove(filename)
@@ -162,9 +174,9 @@ def download_progress_route(feature, model):
     def generate():
         key = f"{feature}_{model}"
         while True:
-            # Check the download progress
-            progress = download_progress.get(key, 0)
-            yield f"data:{progress}\n\n"
+            progress = common.read_status_file(key)
+            if progress is not None:
+                yield f"data:{progress}\n\n"
             time.sleep(1)
 
     response = app.response_class(
@@ -173,6 +185,45 @@ def download_progress_route(feature, model):
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Connection"] = "keep-alive"
     return response
+
+
+@app.route("/models/cancel-download", methods=["POST"])
+def cancel_download():
+    feature = request.json.get("feature")
+    model = request.json.get("model")
+    key = f"{feature}_{model}"
+
+    if common.read_status_file(key) is not None:
+        common.delete_status_file(key)
+        return jsonify({"success": True}), 200
+    else:
+        return (
+            jsonify({"success": False, "error": f"Download {key} is not active"}),
+            200,
+        )
+
+
+@app.route("/models/delete", methods=["POST"])
+def models_delete():
+    feature = request.json.get("feature")
+    model = request.json.get("model")
+
+    if feature not in ["transcribe"]:
+        return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
+
+    if feature == "transcribe":
+        if model not in ["small", "medium", "large"]:
+            return jsonify({"success": False, "error": f"Invalid model: {model}"})
+
+        filename = os.path.join(common.get_models_dir(), "whisper", f"{model}.pt")
+        print(f"Deleting {filename}")
+
+        try:
+            os.remove(filename)
+        except FileNotFoundError:
+            pass
+
+        return jsonify({"success": True}), 200
 
 
 # Transcribe

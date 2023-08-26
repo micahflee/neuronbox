@@ -74,7 +74,7 @@ onMounted(async () => {
     } catch (error) {
         invoke('message_dialog', {
             title: 'Error fetching models',
-            message: error,
+            message: error.message,
             kind: 'error'
         });
         console.error("Error fetching models:", error);
@@ -83,14 +83,22 @@ onMounted(async () => {
 
 const deleteModel = async (featureName, modelName) => {
     try {
-        await axios.post(`${API_URL}/models/delete`, { feature: featureName, model: modelName });
+        const response = await axios.post(`${API_URL}/models/delete`, { feature: featureName, model: modelName });
+        if (!response.data.success) {
+            invoke('message_dialog', {
+                title: 'Delete error',
+                message: response.data.error,
+                kind: 'error'
+            });
+        }
+
         // Refresh models after deletion
-        const response = await axios.get(`${API_URL}/models`);
-        transcribeModels.value = response.data.models.transcribe;
+        const response2 = await axios.get(`${API_URL}/models`);
+        transcribeModels.value = response2.data.models.transcribe;
     } catch (error) {
         invoke('message_dialog', {
             title: 'Error deleting model',
-            message: error,
+            message: error.message,
             kind: 'error'
         });
         console.error("Error deleting model:", error);
@@ -103,44 +111,96 @@ const downloadModel = async (featureName, modelName) => {
         model.downloading = true;
         model.progress = 0;
 
-        // Start download
-        await axios.post(`${API_URL}/models/download`, { feature: featureName, model: modelName });
-
         // Initialize SSE
-        const eventSource = new EventSource(`${API_URL}/download-progress/${featureName}/${modelName}`);
-        eventSource.onmessage = function (event) {
+        model.eventSource = new EventSource(`${API_URL}/download-progress/${featureName}/${modelName}`);
+        model.eventSource.onmessage = function (event) {
             const progress = parseFloat(event.data);
             model.progress = progress;
             if (progress === 100) {
-                eventSource.close();
+                model.eventSource.close();
                 model.downloading = false;
                 model.downloaded = true;
             }
         };
 
         // Handle errors (optional)
-        eventSource.onerror = function (error) {
+        model.eventSource.onerror = function (error) {
             invoke('message_dialog', {
                 title: 'EventSource failed',
-                message: error,
+                message: error.message,
                 kind: 'error'
             });
             console.error("EventSource failed:", error);
-            eventSource.close();
+            model.eventSource.close();
+
+            const model = transcribeModels.value.find(m => m.name === modelName);
+            model.downloading = false;
+            model.progress = 0;
         };
+
+        // Start download
+        const response = await axios.post(`${API_URL}/models/download`, { feature: featureName, model: modelName }, { timeout: 1200000 });
+        if (!response.data.success) {
+            invoke('message_dialog', {
+                title: 'Download error',
+                message: response.data.error,
+                kind: 'error'
+            });
+
+            const model = transcribeModels.value.find(m => m.name === modelName);
+            model.downloading = false;
+            model.progress = 0;
+        } else {
+            // Refresh models after download
+            const response2 = await axios.get(`${API_URL}/models`);
+            transcribeModels.value = response2.data.models.transcribe;
+        }
     } catch (error) {
         invoke('message_dialog', {
             title: 'Error downloading model',
-            message: error,
+            message: error.message,
             kind: 'error'
         });
         console.error("Error downloading model:", error);
     }
 }
 
-const cancelDownload = (featureName, modelName) => {
-    // You'll need to implement this, which could involve terminating the SSE, and sending an abort request to the server.
+const cancelDownload = async (featureName, modelName) => {
+    try {
+        const response = await axios.post(`${API_URL}/models/cancel-download`, { feature: featureName, model: modelName });
+        if (!response.data.success) {
+            invoke('message_dialog', {
+                title: 'Cancel download error',
+                message: response.data.error,
+                kind: 'error'
+            });
+        }
+
+        const model = transcribeModels.value.find(m => m.name === modelName);
+        model.downloading = false;
+        model.progress = 0;
+
+        if (model.eventSource) {
+            model.eventSource.close();
+            model.eventSource = null;
+        }
+    } catch (error) {
+        invoke('message_dialog', {
+            title: 'Error canceling download',
+            message: error.message,
+            kind: 'error'
+        });
+        console.error("Error canceling download:", error);
+
+        const model = transcribeModels.value.find(m => m.name === modelName);
+        model.downloading = false;
+        model.progress = 0;
+    }
 }
 </script>
   
-<style scoped></style>
+<style scoped>
+.progress-bar {
+    padding: 10px;
+}
+</style>

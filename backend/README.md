@@ -13,5 +13,5 @@ pip install -r requirements.txt
 Run the server (on port 52014):
 
 ```sh
-python app.py
+gunicorn app:app -w 4 --timeout 1200 -k gevent -b 127.0.0.1:52014 --error-logfile error.log
 ```

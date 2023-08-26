@@ -1,5 +1,8 @@
 appdirs
 Flask
+Flask-CORS
 requests
 openai_whisper
 tqdm
+gunicorn
+gevent
