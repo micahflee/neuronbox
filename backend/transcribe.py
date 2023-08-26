@@ -1,2 +1,2 @@
 def transcribe(filename):
-    pass
+    return {"error": "not implemented"}

@@ -1,6 +1,6 @@
 # Backend
 
-You need Python 3.
+You need Python 3. You also need `ffmpeg` installed (TODO: packaging).
 
 Create a virtual environment and install deps:
 
@@ -13,5 +13,5 @@ pip install -r requirements.txt
 Run the server (on port 52014):
 
 ```sh
-gunicorn app:app -w 4 -b 127.0.0.1:500052014
+python app.py
 ```

@@ -20,12 +20,10 @@ fn main() {
 
 #[tauri::command]
 async fn select_file() -> String {
-    println!("select_file() called");
     let (tx, rx) = mpsc::channel();
 
     tokio::task::spawn_blocking(|| {
         FileDialogBuilder::new().pick_file(move |file_path| {
-            println!("pick_file() called");
             let path_str = file_path
                 .map(|p| p.to_str().unwrap().to_string())
                 .unwrap_or_else(|| "".to_string());
