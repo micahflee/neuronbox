@@ -63,7 +63,7 @@ def models():
                     },
                     {
                         "name": "medium",
-                        "description": "Medium, requires ~5GB RAM (recommended)",
+                        "description": "Medium, requires ~5GB RAM",
                         "downloaded": whispers_medium_downloaded,
                         "size": whispers_medium_size,
                     },
@@ -255,6 +255,17 @@ def transcribe():
     # Validate model, it should be either "small", "medium", or "large"
     if model not in ["small", "medium", "large"]:
         return jsonify({"success": False, "error": f"Invalid model: {model}"})
+
+    # Make sure the model is actually downloaded
+    if not os.path.exists(
+        os.path.join(common.get_models_dir(), "whisper", f"{model}.pt")
+    ):
+        return jsonify(
+            {
+                "success": False,
+                "error": f'You must download the model "{model}" before you can use it',
+            }
+        )
 
     transcription = do_transcribe(model, filename)
     return jsonify(transcription)
