@@ -1,2 +1,3 @@
+appdirs
 Flask
 openai_whisper

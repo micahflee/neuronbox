@@ -7,10 +7,12 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import App from './App.vue';
 import Home from './Pages/Home.vue';
 import Transcribe from './Pages/Transcribe.vue';
+import Models from './Pages/Models.vue';
 
 const routes = [
     { path: '/', component: Home },
     { path: '/transcribe', component: Transcribe },
+    { path: '/models', component: Models },
 ];
 
 const router = createRouter({

@@ -15,9 +15,9 @@
             <div class="mb-3">
                 <label for="model" class="form-label">Model:</label>
                 <select id="model" v-model="formData.model" class="form-select">
-                    <option value="small">Small (461MB download, requires ~2GB RAM)</option>
-                    <option value="medium">Medium (789MB download, requires ~5GB RAM)</option>
-                    <option value="large">Large (1.5GB download, requires ~10GB RAM)</option>
+                    <option v-for="model in models.transcribe" :key="model.name" :value="model.name">
+                        {{ model.description }}
+                    </option>
                 </select>
             </div>
 
@@ -27,7 +27,7 @@
 </template>
   
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import axios from 'axios';
 
@@ -36,7 +36,22 @@ const formData = ref({
     model: 'small'
 });
 
+const models = ref({
+    transcribe: []
+});
+
 const isSubmitDisabled = computed(() => !formData.value.filename);
+
+async function loadModels() {
+    try {
+        const response = await axios.get('http://127.0.0.1:52014/models');
+        models.value = response.data.models;
+    } catch (error) {
+        console.error("Failed to load models:", error);
+    }
+}
+
+onMounted(loadModels);
 
 async function openFileDialog() {
     invoke('select_file').then(filename => {

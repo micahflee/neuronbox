@@ -3,9 +3,13 @@
         <header class="header bg-dark d-flex align-items-center p-4">
             <router-link to="/" class="text-white me-5">NeuronBox</router-link>
 
-            <button class="btn btn-primary btn-sm">
-                <router-link to="/transcribe" class="text-white text-decoration-none">Transcribe Audio</router-link>
-            </button>
+            <router-link :to="{ path: '/transcribe' }" class="btn btn-primary btn-sm me-3 text-white text-decoration-none">
+                Transcribe Audio
+            </router-link>
+
+            <router-link :to="{ path: '/models' }" class="btn btn-primary btn-sm text-white text-decoration-none">
+                Models
+            </router-link>
         </header>
         <div class="main-content w-100 d-flex flex-grow-1">
             <router-view></router-view>

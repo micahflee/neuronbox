@@ -1,4 +1,5 @@
 import os
+import appdirs
 from flask import Flask, jsonify, request
 
 from transcribe import do_transcribe
@@ -14,6 +15,26 @@ def add_cors_headers(response):
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     
     return response
+
+@app.route("/models", methods=["GET"])
+def models():
+    models_dir = os.path.join(appdirs.user_config_dir("neuronbox"), "models")
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+    
+    whisper_dir = os.path.join(models_dir, "whisper")
+    if not os.path.exists(whisper_dir):
+        os.makedirs(whisper_dir)
+    
+    whispers_small_downloaded = os.path.exists(os.path.join(whisper_dir, "small.pt"))
+    whispers_medium_downloaded = os.path.exists(os.path.join(whisper_dir, "medium.pt"))
+    whispers_large_downloaded = os.path.exists(os.path.join(whisper_dir, "large.pt"))
+
+    return jsonify({"models": {"transcribe": [
+        {"name": "small", "description": "Small, required VRAM ~2GB", "downloaded": whispers_small_downloaded},
+        {"name": "medium", "description": "Medium, required VRAM ~5 GB", "downloaded": whispers_medium_downloaded},
+        {"name": "large", "description": "Large, required VRAM ~10 GB", "downloaded": whispers_large_downloaded}
+    ]}})
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
