@@ -9,9 +9,9 @@
 import { invoke } from '@tauri-apps/api/tauri'
 
 async function openFileDialog() {
-    invoke('select_file').then(response => {
-        if (response.file_path) {
-            console.log("File path selected:", response.file_path);
+    invoke('select_file').then(filename => {
+        if (filename) {
+            console.log("File path selected:", filename);
         } else {
             console.log("No file was selected.");
         }
