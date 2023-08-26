@@ -1,15 +1,17 @@
 # Backend
 
-You need Python 3 and Poetry.
+You need Python 3.
 
-Install deps:
+Create a virtual environment and install deps:
 
 ```sh
-poetry install
+python3 -m venv venv
+. venv/bin/activate
+pip install -r requirements.txt
 ```
 
 Run the server (on port 52014):
 
 ```sh
-poetry run gunicorn app:app -w 4 -b 127.0.0.1:500052014
+gunicorn app:app -w 4 -b 127.0.0.1:500052014
 ```
