@@ -31,6 +31,8 @@ import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import axios from 'axios';
 
+import { API_URL } from '../config';
+
 const formData = ref({
     filename: '',
     model: 'small'
@@ -44,7 +46,7 @@ const isSubmitDisabled = computed(() => !formData.value.filename);
 
 async function loadModels() {
     try {
-        const response = await axios.get('http://127.0.0.1:52014/models');
+        const response = await axios.get(`${API_URL}/models`);
         models.value = response.data.models;
     } catch (error) {
         console.error("Failed to load models:", error);
@@ -66,7 +68,7 @@ async function openFileDialog() {
 
 async function submitForm() {
     try {
-        const response = await axios.post('http://127.0.0.1:52014/transcribe', formData.value);
+        const response = await axios.post(`${API_URL}/transcribe`, formData.value);
         const data = response.data;
         if (data.error) {
             invoke('message_dialog', {

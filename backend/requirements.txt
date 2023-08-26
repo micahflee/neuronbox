@@ -1,3 +1,5 @@
 appdirs
 Flask
+requests
 openai_whisper
+tqdm

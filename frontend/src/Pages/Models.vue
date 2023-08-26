@@ -10,27 +10,47 @@
         <div class="card mb-4">
             <div class="card-header">Transcribe Audio</div>
             <div class="card-body">
-                <p>I transcribe audio using OpenAI's open source neural network called <a
-                        href="https://openai.com/research/whisper" @click="openExternalLink">Whisper</a>. You have a choice
-                    of using different sized
-                    models. The larger models require significantly more disk space and RAM compared to the smaller models.
+                <p>
+                    I transcribe audio using OpenAI's open source neural network called <a
+                        href="https://openai.com/research/whisper" target="_blank">Whisper</a>.
+                    You have a choice of using different sized models
+                    (<a href="https://github.com/openai/whisper/blob/main/model-card.md" target="_blank">learn more</a>
+                    about the differences between these models). The larger models require significantly more disk space and
+                    RAM compared to the smaller models.
                 </p>
 
+                <!-- Loop over each model -->
                 <div v-for="model in transcribeModels" :key="model.name" class="row mb-3">
+                    <!-- Model Name -->
                     <div class="col-md-2">
                         <h5>{{ model.name }}</h5>
                     </div>
+                    <!-- Model Description -->
                     <div class="col-md-6">
                         <p>{{ model.description }}</p>
                     </div>
+                    <!-- Download Progress and Status -->
                     <div class="col-md-2">
-                        <p v-if="model.downloaded">Downloaded</p>
+                        <div v-if="model.downloading">
+                            <!-- Progress Bar -->
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" :style="{ width: model.progress + '%' }"
+                                    :aria-valuenow="model.progress" aria-valuemin="0" aria-valuemax="100">
+                                    {{ model.progress.toFixed(0) }}%
+                                </div>
+                            </div>
+                        </div>
+                        <p v-else-if="model.downloaded">Downloaded</p>
                         <p v-else>Not downloaded</p>
                     </div>
+                    <!-- Action Buttons -->
                     <div class="col-md-2">
-                        <button v-if="model.downloaded" @click="deleteModel(model.name)"
+                        <button v-if="model.downloaded" @click="deleteModel('transcribe', model.name)"
                             class="btn btn-danger">Delete</button>
-                        <button v-else @click="downloadModel(model.name)" class="btn btn-primary">Download</button>
+                        <button v-else-if="model.downloading" @click="cancelDownload('transcribe', model.name)"
+                            class="btn btn-warning">Cancel</button>
+                        <button v-else @click="downloadModel('transcribe', model.name)"
+                            class="btn btn-primary">Download</button>
                     </div>
                 </div>
             </div>
@@ -41,46 +61,85 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-
 import { invoke } from '@tauri-apps/api/tauri';
+
+import { API_URL } from '../config';
 
 const transcribeModels = ref([]);
 
 onMounted(async () => {
     try {
-        const response = await axios.get('http://127.0.0.1:52014/models');
+        const response = await axios.get(`${API_URL}/models`);
         transcribeModels.value = response.data.models.transcribe;
     } catch (error) {
+        invoke('message_dialog', {
+            title: 'Error fetching models',
+            message: error,
+            kind: 'error'
+        });
         console.error("Error fetching models:", error);
     }
 });
 
-const deleteModel = async (modelName) => {
+const deleteModel = async (featureName, modelName) => {
     try {
-        await axios.post('http://127.0.0.1:52014/models/delete', { model: modelName });
+        await axios.post(`${API_URL}/models/delete`, { feature: featureName, model: modelName });
         // Refresh models after deletion
-        const response = await axios.get('http://127.0.0.1:52014/models');
+        const response = await axios.get(`${API_URL}/models`);
         transcribeModels.value = response.data.models.transcribe;
     } catch (error) {
+        invoke('message_dialog', {
+            title: 'Error deleting model',
+            message: error,
+            kind: 'error'
+        });
         console.error("Error deleting model:", error);
     }
 }
 
-const downloadModel = async (modelName) => {
+const downloadModel = async (featureName, modelName) => {
     try {
-        await axios.post('http://127.0.0.1:52014/models/download', { model: modelName });
-        // Refresh models after download
-        const response = await axios.get('http://127.0.0.1:52014/models');
-        transcribeModels.value = response.data.models.transcribe;
+        const model = transcribeModels.value.find(m => m.name === modelName);
+        model.downloading = true;
+        model.progress = 0;
+
+        // Start download
+        await axios.post(`${API_URL}/models/download`, { feature: featureName, model: modelName });
+
+        // Initialize SSE
+        const eventSource = new EventSource(`${API_URL}/download-progress/${featureName}/${modelName}`);
+        eventSource.onmessage = function (event) {
+            const progress = parseFloat(event.data);
+            model.progress = progress;
+            if (progress === 100) {
+                eventSource.close();
+                model.downloading = false;
+                model.downloaded = true;
+            }
+        };
+
+        // Handle errors (optional)
+        eventSource.onerror = function (error) {
+            invoke('message_dialog', {
+                title: 'EventSource failed',
+                message: error,
+                kind: 'error'
+            });
+            console.error("EventSource failed:", error);
+            eventSource.close();
+        };
     } catch (error) {
+        invoke('message_dialog', {
+            title: 'Error downloading model',
+            message: error,
+            kind: 'error'
+        });
         console.error("Error downloading model:", error);
     }
 }
 
-function openExternalLink(event) {
-    event.preventDefault();
-    const url = event.target.href;
-    invoke('open', { uri: url });
+const cancelDownload = (featureName, modelName) => {
+    // You'll need to implement this, which could involve terminating the SSE, and sending an abort request to the server.
 }
 </script>
   
