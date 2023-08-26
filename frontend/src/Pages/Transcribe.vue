@@ -15,9 +15,9 @@
             <div class="mb-3">
                 <label for="model" class="form-label">Model:</label>
                 <select id="model" v-model="formData.model" class="form-select">
-                    <option value="small">Small (244MB download, needs ~2GB RAM)</option>
-                    <option value="medium">Medium (789MB download, needs ~5GB RAM)</option>
-                    <option value="large">Large (1.5GB download, needs ~10GB RAM)</option>
+                    <option value="small">Small (461MB download, requires ~2GB RAM)</option>
+                    <option value="medium">Medium (789MB download, requires ~5GB RAM)</option>
+                    <option value="large">Large (1.5GB download, requires ~10GB RAM)</option>
                 </select>
             </div>
 

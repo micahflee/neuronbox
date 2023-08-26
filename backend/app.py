@@ -1,7 +1,7 @@
 import os
-from flask import Flask, send_file, jsonify, request
+from flask import Flask, jsonify, request
 
-from transcribe import transcribe
+from transcribe import do_transcribe
 
 app = Flask(__name__)
 
@@ -18,20 +18,24 @@ def add_cors_headers(response):
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     filename = request.json.get("filename")
+    model = request.json.get("model")
 
+    # Validate filename
     try:
-        # Make sure file exists
         if not os.path.exists(filename):
             return jsonify({"error": "File does not exist"})
         
-        # Check that the file is an audio file (.wav, .mp3, .flac)
-        if not filename.endswith(".wav") and not filename.endswith(".mp3") and not filename.endswith(".flac"):
+        if not filename.endswith(".wav") and not filename.endswith(".mp3") and not filename.endswith(".flac") and not filename.endswith(".m4a"):
             basename = os.path.basename(filename)
             return jsonify({"error": f"{basename} is not an audio file"})
     except Exception as e:
         return jsonify({"error": f"Invalid file: {e}"})
     
-    transcription = transcribe(filename)
+    # Validate model, it should be either "small", "medium", or "large"
+    if model not in ["small", "medium", "large"]:
+        return jsonify({"error": f"Invalid model: {model}"})
+
+    transcription = do_transcribe(model, filename)
     return jsonify(transcription)
 
 
