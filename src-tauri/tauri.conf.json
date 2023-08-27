@@ -1,9 +1,9 @@
 {
   "build": {
-    "beforeDevCommand": "cd ../frontend && npm run build",
-    "beforeBuildCommand": "cd ../frontend && npm run build",
-    "devPath": "../../frontend/dist",
-    "distDir": "../../frontend/dist",
+    "beforeDevCommand": "cd frontend && npm run build",
+    "beforeBuildCommand": "cd frontend && npm run build",
+    "devPath": "../frontend/dist",
+    "distDir": "../frontend/dist",
     "withGlobalTauri": true
   },
   "package": {
