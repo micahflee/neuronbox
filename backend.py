@@ -375,7 +375,7 @@ def run_gunicorn_server():
         "worker_class": "gevent",
     }
 
-    StandaloneApplication(util.import_app("app:app"), options).run()
+    StandaloneApplication(util.import_app("backend:app"), options).run()
 
 
 if __name__ == "__main__":
