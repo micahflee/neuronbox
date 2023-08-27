@@ -6,3 +6,4 @@ openai_whisper
 tqdm
 gunicorn
 gevent
+pyinstaller

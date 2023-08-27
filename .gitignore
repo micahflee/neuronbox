@@ -185,3 +185,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Other
+resources
