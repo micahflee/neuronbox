@@ -2,6 +2,7 @@
 
 use std::process::Command;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use tauri::api::dialog::FileDialogBuilder;
 use tauri::api::dialog::{MessageDialogBuilder, MessageDialogKind, MessageDialogButtons};
 
@@ -28,15 +29,27 @@ fn main() {
     };
 
     // Start the backend process in the background
-    Command::new(backend_cmd)
-        .args(&backend_args)
-        .spawn()
-        .expect("Failed to start the backend process");
+    let backend_process = Arc::new(Mutex::new(
+        Command::new(backend_cmd)
+            .args(&backend_args)
+            .spawn()
+            .expect("Failed to start the backend process")
+    ));    
 
-    // TODO: when the window closes, kill the backend process
-
+    // Start the app
+    let process_clone = backend_process.clone();
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![select_file, message_dialog])
+        .on_window_event(move |event| {
+            match event.event() {
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    let mut process = process_clone.lock().unwrap();
+                    process.kill().expect("Failed to kill the backend process");
+                    process.wait().expect("Failed to wait for backend process termination");
+                }
+                _ => {}
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
