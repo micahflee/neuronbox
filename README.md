@@ -26,9 +26,27 @@ Run the server (on port 52014):
 python backend.py
 ```
 
+### Frontend
+
+You need Node.js to build this component.
+
+Install dependencies:
+
+```sh
+npm install
+```
+
+Build the frontend:
+
+```sh
+npm run build
+```
+
+You generally won't have to build this yourself -- Tauri will do this for you when running the desktop app.
+
 ### Desktop app
 
-You need Rust installed.
+You need Rust installed. Tauri handles building the frontend for you.
 
 Start the app:
 
