@@ -1,7 +1,7 @@
 {
   "build": {
     "beforeDevCommand": "cd frontend && npm run build",
-    "beforeBuildCommand": "cd frontend && npm run build",
+    "beforeBuildCommand": "./build.sh",
     "devPath": "../frontend/dist",
     "distDir": "../frontend/dist",
     "withGlobalTauri": true
@@ -32,6 +32,9 @@
         "icons/128x128@2x.png",
         "icons/icon.icns",
         "icons/icon.ico"
+      ],
+      "resources": [
+        "../resources/*"
       ]
     },
     "security": {

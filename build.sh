@@ -39,24 +39,35 @@ if [[ ! -d "ffmpeg" ]]; then
     git clone https://git.ffmpeg.org/ffmpeg.git
 fi
 cd ffmpeg
-git fetch
-git checkout ${FFMPEG_TAG}
 
-# Import ffmpeg signing key and verify the git tag
-gpg --keyserver keyserver.ubuntu.com --recv 0xDD1EC9E8DE085C629B3E1846B18E8928B3948D64
-git tag -v ${FFMPEG_TAG}
-if [[ $? -ne 0 ]]; then
-    echo "Failed to verify the git tag for ffmpeg."
-    exit 1
-fi
+# Check to see if the ffmpeg file does not exist
+if [[ ! -f "ffmpeg" ]]; then
+    echo "Building ffmpeg..."
+    
+    git fetch
+    git checkout ${FFMPEG_TAG}
 
-# Compile
-./configure
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    make -j$(sysctl -n hw.logicalcpu)
+    # Import ffmpeg signing key and verify the git tag
+    gpg --keyserver keyserver.ubuntu.com --recv 0xDD1EC9E8DE085C629B3E1846B18E8928B3948D64
+    git tag -v ${FFMPEG_TAG}
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to verify the git tag for ffmpeg."
+        exit 1
+    fi
+    ./configure
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        make -j$(sysctl -n hw.logicalcpu)
+    else
+        make -j$(nproc)
+    fi
 else
-    make -j$(nproc)
+    # Check to see if the ffmpeg file is older than 1 day
+    if [[ $(find ffmpeg -mtime +1 -print) ]]; then
+        echo "ffmpeg is up to date."
+        exit 0
+    fi
 fi
+
 cd ../..
 
 # Copy the ffmpeg binary to the resources directory

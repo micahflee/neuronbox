@@ -120,6 +120,12 @@ def handle_exception(e):
     return str(e), 500
 
 
+# Health check
+@app.route("/health")
+def health():
+    return "OK"
+
+
 # Models
 
 
