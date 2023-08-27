@@ -1,7 +1,7 @@
 <template>
     <div class="container">
         <div v-if="isLoading" class="d-flex justify-content-center align-items-center flex-column">
-            <img src="/assets/waiting-on-ai.gif" alt="Loading..." class="mb-4 loading">
+            <img src="/assets/loading.gif" alt="Loading..." class="mb-4 loading">
             <p>Waiting on the AI to transcribe the audio...</p>
         </div>
         <div v-if="!isLoading && !transcriptionResult">
