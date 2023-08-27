@@ -7,7 +7,7 @@
     "withGlobalTauri": true
   },
   "package": {
-    "productName": "neuronbox",
+    "productName": "NeuronBox",
     "version": "0.0.0"
   },
   "tauri": {
