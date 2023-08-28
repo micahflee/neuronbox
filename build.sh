@@ -75,3 +75,4 @@ cp build/ffmpeg/ffmpeg resources/ffmpeg
 
 # Freeze backend.py
 pyinstaller --distpath resources --noconfirm backend.spec
+mv resources/backend resources/neuronbox-backend

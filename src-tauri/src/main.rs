@@ -1,12 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use nix::sys::signal::{kill, SIGTERM};
+use nix::unistd::Pid;
 use std::process::Command;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use sysinfo::{PidExt, ProcessExt, System, SystemExt};
 use tauri::api::dialog::FileDialogBuilder;
-use tauri::api::dialog::{MessageDialogBuilder, MessageDialogKind, MessageDialogButtons};
-use nix::sys::signal::{kill, SIGTERM};
-use nix::unistd::Pid;
+use tauri::api::dialog::{MessageDialogBuilder, MessageDialogButtons, MessageDialogKind};
 
 #[derive(serde::Deserialize)]
 struct Params;
@@ -17,11 +18,14 @@ struct Response {
 }
 
 fn main() {
+    // If backend processes are already running in the background, kill them
+    kill_backend_processes();
+
     // Run `python backend.py` in debug mode, or `./resources/backend` in release mode
     let backend_cmd = if cfg!(debug_assertions) {
         "python"
     } else {
-        "./resources/backend"
+        "./resources/neuronbox-backend"
     };
 
     let backend_args = if cfg!(debug_assertions) {
@@ -35,8 +39,8 @@ fn main() {
         Command::new(backend_cmd)
             .args(&backend_args)
             .spawn()
-            .expect("Failed to start the backend process")
-    ));    
+            .expect("Failed to start the backend process"),
+    ));
 
     // Start the app
     let process_clone = backend_process.clone();
@@ -60,29 +64,77 @@ fn main() {
                                 match process.try_wait() {
                                     Ok(Some(_status)) => {
                                         // The process has terminated
-                                    },
+                                    }
                                     Ok(None) => {
                                         // The process is still alive, kill it forcefully
                                         process.kill().expect("Failed to kill the backend process");
-                                    },
+                                    }
                                     Err(e) => {
                                         println!("Error waiting for process: {:?}", e);
                                     }
                                 }
-                            },
+                            }
                             Err(e) => {
                                 println!("Failed to send SIGTERM: {:?}", e);
                             }
                         }
                     }
 
-                    // ... other potential logic for non-unix systems ...
+                    #[cfg(windows)]
+                    {
+                        // TODO: kill processes in Windows
+                    }
                 }
                 _ => {}
             }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn kill_backend_processes() {
+    let sys = System::new_all();
+    let backend_name = if cfg!(debug_assertions) {
+        "python"
+    } else {
+        "neuronbox-backend"
+    };
+    let backend_cmd_line = if cfg!(debug_assertions) {
+        vec!["../backend.py"]
+    } else {
+        vec!["neuronbox-backend"]
+    };
+    for (pid, proc) in sys.processes() {
+        let cmd = proc.cmd();
+
+        // Extract the filename from the full path
+        let binary_name = cmd
+            .get(0)
+            .and_then(|path| path.split('/').last())
+            .unwrap_or("");
+
+        // Check if the extracted binary name matches "python" or "Python"
+        if binary_name.to_lowercase() == backend_name
+            && cmd.len() >= backend_cmd_line.len()
+            && &cmd[(cmd.len() - backend_cmd_line.len())..] == &backend_cmd_line[..]
+        {
+            println!("Found backend process with PID {}", pid);
+            #[cfg(unix)]
+            {
+                let pid = Pid::from_raw(pid.as_u32().try_into().unwrap());
+                println!("Killing process {}...", pid);
+                if let Err(e) = kill(pid, SIGTERM) {
+                    println!("Failed to send SIGTERM to process {}: {:?}", pid, e);
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+            }
+            #[cfg(windows)]
+            {
+                // TODO: kill processes in Windows
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -96,7 +148,9 @@ async fn select_file() -> String {
                 .unwrap_or_else(|| "".to_string());
             tx.send(path_str).unwrap();
         });
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
 
     let received_path = rx.recv().unwrap();
     if received_path.is_empty() {
@@ -117,7 +171,7 @@ fn message_dialog(title: String, message: String, kind: String) {
             MessageDialogKind::Info
         }
     };
-    
+
     MessageDialogBuilder::new(&title, &message)
         .kind(dialog_kind)
         .buttons(MessageDialogButtons::Ok)
