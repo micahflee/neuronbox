@@ -30,25 +30,20 @@ from functools import lru_cache
 #   File "whisper/audio.py", line 94, in mel_filters
 #   File "numpy/lib/npyio.py", line 405, in load
 # FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/91/mf1m_byx43d8v058f2yb4nlm0000gn/T/_MEIz3Pn83/whisper/assets/mel_filters.npz'
-@lru_cache(maxsize=None)
-def my_mel_filters(device, n_mels: int = whisper.audio.N_MELS) -> torch.Tensor:
-    """
-    Modified version of mel_filters function
-    """
-    assert n_mels == 80, f"Unsupported n_mels: {n_mels}"
+if getattr(sys, "frozen", False):
 
-    if getattr(sys, "frozen", False):
-        # If the application is run as a bundle
-        base_path = sys._MEIPASS
-    else:
+    @lru_cache(maxsize=None)
+    def my_mel_filters(device, n_mels: int = whisper.audio.N_MELS) -> torch.Tensor:
+        """
+        Modified version of mel_filters function
+        """
+        assert n_mels == 80, f"Unsupported n_mels: {n_mels}"
         base_path = os.path.dirname(os.path.abspath(__file__))
+        mel_filters_path = os.path.join(base_path, "whisper/assets/mel_filters.npz")
+        with np.load(mel_filters_path) as f:
+            return torch.from_numpy(f[f"mel_{n_mels}"]).to(device)
 
-    mel_filters_path = os.path.join(base_path, "whisper/assets/mel_filters.npz")
-    with np.load(mel_filters_path) as f:
-        return torch.from_numpy(f[f"mel_{n_mels}"]).to(device)
-
-
-whisper.audio.mel_filters = my_mel_filters
+    whisper.audio.mel_filters = my_mel_filters
 
 
 # Helper functions

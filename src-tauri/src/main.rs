@@ -5,6 +5,8 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use tauri::api::dialog::FileDialogBuilder;
 use tauri::api::dialog::{MessageDialogBuilder, MessageDialogKind, MessageDialogButtons};
+use nix::sys::signal::{kill, SIGTERM};
+use nix::unistd::Pid;
 
 #[derive(serde::Deserialize)]
 struct Params;
@@ -44,8 +46,37 @@ fn main() {
             match event.event() {
                 tauri::WindowEvent::CloseRequested { .. } => {
                     let mut process = process_clone.lock().unwrap();
-                    process.kill().expect("Failed to kill the backend process");
-                    process.wait().expect("Failed to wait for backend process termination");
+
+                    #[cfg(unix)]
+                    {
+                        let pid = Pid::from_raw(process.id() as i32);
+                        // Send SIGTERM
+                        match kill(pid, SIGTERM) {
+                            Ok(_) => {
+                                // Sleep for a bit to see if the process exits gracefully
+                                std::thread::sleep(std::time::Duration::from_secs(1));
+
+                                // Check if the process is still alive
+                                match process.try_wait() {
+                                    Ok(Some(_status)) => {
+                                        // The process has terminated
+                                    },
+                                    Ok(None) => {
+                                        // The process is still alive, kill it forcefully
+                                        process.kill().expect("Failed to kill the backend process");
+                                    },
+                                    Err(e) => {
+                                        println!("Error waiting for process: {:?}", e);
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                println!("Failed to send SIGTERM: {:?}", e);
+                            }
+                        }
+                    }
+
+                    // ... other potential logic for non-unix systems ...
                 }
                 _ => {}
             }

@@ -1,12 +1,12 @@
 <template>
     <div class="vh-100 d-flex flex-column">
-        <div v-if="isLoading" id="loading" class="d-flex flex-grow-1 align-items-center justify-content-center">
+        <div v-show="isLoading" id="loading" class="d-flex flex-grow-1 align-items-center justify-content-center">
             <div class="d-flex flex-column align-items-center">
                 <img src="/assets/loading.gif" alt="Loading..." class="mb-4 loading">
-                <p>{{ loadingMessage }}</p>
+                <p class="mb-4">{{ loadingMessage }}</p>
             </div>
         </div>
-        <div v-else>
+        <div v-show="!isLoading">
             <header class="header bg-dark d-flex align-items-center p-4">
                 <router-link to="/" class="text-white me-5">NeuronBox</router-link>
 
@@ -20,26 +20,31 @@
                 </router-link>
             </header>
             <div class="main-content w-100 d-flex flex-grow-1">
-                <router-view></router-view>
+                <router-view @change-loading="changeLoading"></router-view>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import axios from 'axios';
 
 const isLoading = ref(null);
 const loadingMessage = ref('');
 
+const changeLoading = (active, message) => {
+    console.log(`changeLoading, active=${active}, message:${message}`);
+    isLoading.value = active;
+    loadingMessage.value = message;
+}
+
 const checkAPIHealth = async () => {
-    isLoading.value = true;
-    loadingMessage.value = 'Waiting for API to boot';
+    changeLoading(true, 'Waiting for API to boot');
     try {
         let response = await axios.get('http://127.0.0.1:52014/health');
         if (response.status === 200) {
-            isLoading.value = false;
+            stopLoading();
         } else {
             console.error("API is not ready. Received status:", response.status);
         }

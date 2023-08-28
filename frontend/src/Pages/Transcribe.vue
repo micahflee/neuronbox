@@ -1,10 +1,6 @@
 <template>
     <div class="container">
-        <div v-if="isLoading" class="d-flex justify-content-center align-items-center flex-column">
-            <img src="/assets/loading.gif" alt="Loading..." class="mb-4 loading">
-            <p>Waiting on the AI to transcribe the audio...</p>
-        </div>
-        <div v-if="!isLoading && !transcriptionResult">
+        <div v-if="!transcriptionResult">
             <h1 class="mb-4">Transcribe Audio</h1>
             <p class="mb-4">Choose an audio file on your computer to transcribe it.</p>
 
@@ -42,13 +38,14 @@
 </template>
   
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, defineEmits } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import axios from 'axios';
 
 import { API_URL } from '../config';
 
-const isLoading = ref(false);
+const emit = defineEmits(['start-loading', 'stop-loading']);
+
 const transcriptionResult = ref(null);
 const transcriptionTimeElapsed = ref(null);
 
@@ -92,10 +89,12 @@ async function openFileDialog() {
 }
 
 async function submitForm() {
-    isLoading.value = true;
+    console.log("emitting change-loading true");
+    emit('change-loading', true, "I'm thinking about how to transcribe this 🤔. It might take a few minutes...");
 
     try {
         const response = await axios.post(`${API_URL}/transcribe`, formData.value, { timeout: 1200000 });
+
         if (!response.data.success) {
             invoke('message_dialog', {
                 title: 'Transcription error',
@@ -114,7 +113,8 @@ async function submitForm() {
             kind: 'error'
         });
     } finally {
-        isLoading.value = false;
+        console.log("emitting change-loading false");
+        emit('change-loading', false, '');
     }
 }
 
