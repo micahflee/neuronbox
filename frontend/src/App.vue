@@ -30,7 +30,7 @@
 import { ref } from 'vue';
 import axios from 'axios';
 
-const isLoading = ref(null);
+const isLoading = ref(false);
 const loadingMessage = ref('');
 
 const changeLoading = (active, message) => {
@@ -44,7 +44,7 @@ const checkAPIHealth = async () => {
     try {
         let response = await axios.get('http://127.0.0.1:52014/health');
         if (response.status === 200) {
-            stopLoading();
+            changeLoading(false, '');
         } else {
             console.error("API is not ready. Received status:", response.status);
         }
@@ -77,5 +77,9 @@ a:hover {
 
 .loading {
     border-radius: 50vw;
+}
+
+#loading.d-flex[style*="display: none"] {
+    display: none !important;
 }
 </style>
