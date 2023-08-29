@@ -1,46 +1,40 @@
 <template>
     <div class="container">
-        <div v-if="!translationResult">
-            <h1 class="mb-4">Translate Text</h1>
-            <p class="mb-4">Enter text in the source language to translate it to English.</p>
-
-            <form @submit.prevent="translateText">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="sourceLanguage" class="form-label">Source Language:</label>
-                            <select id="sourceLanguage" v-model="formData.sourceLanguage" class="form-select">
-                                <option v-for="(languageName, languageCode) in languageCodes" :key="languageCode"
-                                    :value="languageCode">
-                                    {{ languageName }}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="sourceText" class="form-label">Source Text:</label>
-                            <textarea id="sourceText" v-model="formData.sourceText" class="form-control" rows="4"
-                                style="height: 100%;"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary" :disabled="isTranslateDisabled">Translate</button>
+        <form @submit.prevent="translateText">
+            <div class="row">
+                <div class="col-md-6">
+                    <h1 class="mb-4">Translate Text</h1>
+                    <p class="mb-4">Enter text in the source language to translate it to English.</p>
+                    <div class="mb-3">
+                        <label for="sourceLanguage" class="form-label">Source Language:</label>
+                        <select id="sourceLanguage" v-model="formData.sourceLanguage" class="form-select">
+                            <option v-for="(languageName, languageCode) in languageCodes" :key="languageCode"
+                                :value="languageCode">
+                                {{ languageName }}
+                            </option>
+                        </select>
                     </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label">English Translation:</label>
-                            <textarea class="form-control" :value="translationResult" rows="4" readonly
-                                style="height: 100%;"></textarea>
+                    <div class="mb-3">
+                        <label for="sourceText" class="form-label">Source Text:</label>
+                        <textarea id="sourceText" v-model="formData.sourceText" class="form-control" rows="4"
+                            style="height: 100%;"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" :disabled="isTranslateDisabled">Translate</button>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div v-if="translationResult">
+                            <h2>English Translation</h2>
+                            <p class="small text-muted">
+                                Source Language: {{ languageCodes[formData.sourceLanguage] }}<br />
+                                Time elapsed: {{ formattedTimeElapsed }}
+                            </p>
+                            <p>{{ translationResult }}</p>
                         </div>
                     </div>
                 </div>
-            </form>
-        </div>
-        <div v-if="translationResult">
-            <h1 class="mb-4">Translation Results</h1>
-            <p class="small text-muted">
-                Source Language: {{ languageCodes[formData.sourceLanguage] }}<br />
-                Time elapsed: {{ formattedTimeElapsed }}
-            </p>
-            <p>{{ translationResult }}</p>
-        </div>
+            </div>
+        </form>
     </div>
 </template>
 

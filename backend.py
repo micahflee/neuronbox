@@ -19,6 +19,8 @@ import torch
 import numpy as np
 from functools import lru_cache
 
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
 # Mapping of language codes to names for Helsinki NLP models, for popular languages:
 # https://huggingface.co/Helsinki-NLP
 language_codes = {
@@ -529,6 +531,57 @@ def transcribe():
 @app.route("/languages")
 def languages():
     return jsonify(language_codes)
+
+
+def do_translate(source_text, source_language, target_language="en"):
+    model_path = os.path.join(
+        get_models_dir(), "Helsinki-NLP", f"opus-mt-{source_language}-{target_language}"
+    )
+
+    print(f"Translating from {source_language} to {target_language}: {source_text}")
+
+    start_time = time.time()
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
+
+    batch = tokenizer([source_text], return_tensors="pt")
+
+    generated_ids = model.generate(**batch)
+    result = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+
+    elapsed_time = time.time() - start_time
+
+    print(f"Translation finished:\n{result[0]}")
+    return {"success": True, "result": result[0], "time_elapsed": elapsed_time}
+
+
+@app.route("/translate", methods=["POST"])
+def translate():
+    source_text = request.json.get("sourceText")
+    source_language = request.json.get("sourceLanguage")
+    target_language = "en"
+    print(f"Transcribing: {source_language} to {target_language}")
+
+    # Validate source language
+    if source_language not in language_codes:
+        return jsonify(
+            {"success": False, "error": f"Invalid source language: {source_language}"}
+        )
+
+    # Make sure the model is actually downloaded
+    if not os.path.isdir(
+        os.path.join(get_models_dir(), "Helsinki-NLP", f"opus-mt-{source_language}-en")
+    ):
+        return jsonify(
+            {
+                "success": False,
+                "error": f'You must download the model "opus-mt-{source_language}-en" before you can use it',
+            }
+        )
+
+    translation = do_translate(source_text, source_language, target_language)
+    return jsonify(translation)
 
 
 # gunicorn web server stuff
