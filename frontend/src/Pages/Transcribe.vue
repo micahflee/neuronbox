@@ -120,8 +120,4 @@ async function submitForm() {
 
 </script>
 
-<style scoped>
-.loading {
-    border-radius: 50vw;
-}
-</style>
+<style scoped></style>

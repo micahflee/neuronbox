@@ -13,6 +13,10 @@
                 Transcribe Audio
             </router-link>
 
+            <router-link :to="{ path: '/translate' }" class="btn btn-primary btn-sm me-3 text-white text-decoration-none">
+                Translate Text
+            </router-link>
+
             <router-link :to="{ path: '/models' }" class="btn btn-primary btn-sm text-white text-decoration-none">
                 Models
             </router-link>

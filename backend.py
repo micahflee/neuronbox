@@ -21,7 +21,7 @@ from functools import lru_cache
 
 # Mapping of language codes to names for Helsinki NLP models, for popular languages:
 # https://huggingface.co/Helsinki-NLP
-language_mapping = {
+language_codes = {
     "bg": "Bulgarian",
     "zh": "Chinese",
     "cs": "Czech",
@@ -280,12 +280,12 @@ def models():
         os.makedirs(helsinki_dir)
 
     translate_models = []
-    for language_code in language_mapping:
+    for language_code in language_codes:
         # Skip English, since we don't translate from English to English
         if language_code == "en":
             continue
 
-        language_name = language_mapping[language_code]
+        language_name = language_codes[language_code]
 
         model_path = os.path.join(helsinki_dir, f"opus-mt-{language_code}-en")
         is_downloaded = os.path.isdir(model_path)
@@ -362,7 +362,7 @@ def models_download():
 
     elif feature == "translate":
         valid_model_names = []
-        for language_code in language_mapping:
+        for language_code in language_codes:
             if language_code != "en":
                 valid_model_names.append(f"opus-mt-{language_code}-en")
         if model not in valid_model_names:
@@ -451,7 +451,7 @@ def models_delete():
 
     if feature == "translate":
         valid_model_names = []
-        for language_code in language_mapping:
+        for language_code in language_codes:
             if language_code != "en":
                 valid_model_names.append(f"opus-mt-{language_code}-en")
         if model not in valid_model_names:
@@ -524,6 +524,11 @@ def transcribe():
 
 
 # Translate
+
+
+@app.route("/languages")
+def languages():
+    return jsonify(language_codes)
 
 
 # gunicorn web server stuff
