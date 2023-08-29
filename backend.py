@@ -18,6 +18,39 @@ import torch
 import numpy as np
 from functools import lru_cache
 
+# Mapping of language codes to names for Helsinki NLP models, for popular languages:
+# https://huggingface.co/Helsinki-NLP
+language_mapping = {
+    "bg": "Bulgarian",
+    "zh": "Chinese",
+    "cs": "Czech",
+    "da": "Danish",
+    "nl": "Dutch",
+    "en": "English",
+    "et": "Estonian",
+    "fi": "Finnish",
+    "fr": "French",
+    "de": "German",
+    "el": "Greek",
+    "hu": "Hungarian",
+    "id": "Indonesian",
+    "it": "Italian",
+    "jap": "Japanese",
+    # "ko": "Korean",  #
+    "lv": "Latvian",
+    "lt": "Lithuanian",
+    # "nb": "Norwegian (bokmål)",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "ro": "Romanian",
+    "ru": "Russian",
+    "sk": "Slovak",
+    "sl": "Slovenian",
+    "es": "Spanish",
+    "sv": "Swedish",
+    "tr": "Turkish",
+    "uk": "Ukrainian",
+}
 
 # Monkeypatch whisper to work when frozen with PyInstaller. Otherwise, we end up with an error like this:
 # Traceback (most recent call last):
@@ -126,6 +159,7 @@ def health():
 
 @app.route("/models")
 def models():
+    # Transcribe models
     whisper_dir = os.path.join(get_models_dir(), "whisper")
     if not os.path.exists(whisper_dir):
         os.makedirs(whisper_dir)
@@ -149,6 +183,26 @@ def models():
     else:
         whispers_large_size = 0
 
+    # Translate models
+    # (start with only target language English)
+    helsinki_dir = os.path.join(get_models_dir(), "helsinki")
+    if not os.path.exists(helsinki_dir):
+        os.makedirs(helsinki_dir)
+
+    translate_models = []
+    for language_code in language_mapping:
+        language_name = language_mapping[language_code]
+        # TODO: figure out what actual path for downloading these models
+        is_downloaded = os.path.exists(os.path.join(helsinki_dir, f"{language_code}"))
+        translate_models.append(
+            {
+                "name": f"Helsinki-NLP/opus-mt-{language_code}-en",
+                "description": f"{language_name} to English",
+                "downloaded": is_downloaded,
+                "size": 0,
+            }
+        )
+
     return jsonify(
         {
             "models": {
@@ -171,7 +225,8 @@ def models():
                         "downloaded": whispers_large_downloaded,
                         "size": whispers_large_size,
                     },
-                ]
+                ],
+                "translate": translate_models,
             }
         }
     )
@@ -382,6 +437,9 @@ def transcribe():
     return jsonify(transcription)
 
 
+# Translate
+
+
 # gunicorn web server stuff
 
 
@@ -416,4 +474,5 @@ def run_gunicorn_server():
 
 
 if __name__ == "__main__":
-    run_gunicorn_server()
+    # run_gunicorn_server()
+    app.run(host="127.0.0.1", port=52014)

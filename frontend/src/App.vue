@@ -1,27 +1,24 @@
 <template>
-    <div class="vh-100 d-flex flex-column">
-        <div v-show="isLoading" id="loading" class="d-flex flex-grow-1 align-items-center justify-content-center">
-            <div class="d-flex flex-column align-items-center">
-                <img src="/assets/loading.gif" alt="Loading..." class="mb-4 loading">
-                <p class="mb-4">{{ loadingMessage }}</p>
-            </div>
+    <div v-show="isLoading" id="loading" class="vh-100 d-flex align-items-center justify-content-center">
+        <div class="d-flex flex-column align-items-center">
+            <img src="/assets/loading.gif" alt="Loading..." class="mb-4 loading">
+            <p class="mb-4">{{ loadingMessage }}</p>
         </div>
-        <div v-show="!isLoading">
-            <header class="header bg-dark d-flex align-items-center p-4">
-                <router-link to="/" class="text-white me-5">NeuronBox</router-link>
+    </div>
+    <div v-show="!isLoading" id="app-body" class="vh-100 d-flex flex-column">
+        <header class="header bg-dark d-flex align-items-center p-4">
+            <router-link to="/" class="text-white me-5">NeuronBox</router-link>
 
-                <router-link :to="{ path: '/transcribe' }"
-                    class="btn btn-primary btn-sm me-3 text-white text-decoration-none">
-                    Transcribe Audio
-                </router-link>
+            <router-link :to="{ path: '/transcribe' }" class="btn btn-primary btn-sm me-3 text-white text-decoration-none">
+                Transcribe Audio
+            </router-link>
 
-                <router-link :to="{ path: '/models' }" class="btn btn-primary btn-sm text-white text-decoration-none">
-                    Models
-                </router-link>
-            </header>
-            <div class="main-content w-100 d-flex flex-grow-1">
-                <router-view @change-loading="changeLoading"></router-view>
-            </div>
+            <router-link :to="{ path: '/models' }" class="btn btn-primary btn-sm text-white text-decoration-none">
+                Models
+            </router-link>
+        </header>
+        <div class="main-content w-100 d-flex flex-grow-1">
+            <router-view @change-loading="changeLoading"></router-view>
         </div>
     </div>
 </template>
@@ -79,7 +76,8 @@ a:hover {
     border-radius: 50vw;
 }
 
-#loading.d-flex[style*="display: none"] {
+#loading.d-flex[style*="display: none"],
+#app-body.d-flex[style*="display: none"] {
     display: none !important;
 }
 </style>
