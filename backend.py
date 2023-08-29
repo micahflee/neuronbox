@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import traceback
-import subprocess
+import shutil
 
 import requests
 from flask import Flask, jsonify, request, stream_with_context
@@ -97,10 +97,14 @@ def get_download_status_dir():
 
 class DownloadStatus:
     def __init__(self, key):
-        self.key = key
+        self.key = key.replace("/", "_")
         self.progress = 0
-        self.status_filename = os.path.join(get_download_status_dir(), f"{key}.status")
-        self.cancel_filename = os.path.join(get_download_status_dir(), f"{key}.cancel")
+        self.status_filename = os.path.join(
+            get_download_status_dir(), f"{self.key}.status"
+        )
+        self.cancel_filename = os.path.join(
+            get_download_status_dir(), f"{self.key}.cancel"
+        )
 
         self._load_status()
         self.update(self.progress)
@@ -271,7 +275,7 @@ def models():
 
     # Translate models
     # (start with only target language English)
-    helsinki_dir = os.path.join(get_models_dir(), "helsinki")
+    helsinki_dir = os.path.join(get_models_dir(), "Helsinki-NLP")
     if not os.path.exists(helsinki_dir):
         os.makedirs(helsinki_dir)
 
@@ -283,15 +287,23 @@ def models():
 
         language_name = language_mapping[language_code]
 
-        # TODO: figure out what actual path for downloading these models
-        is_downloaded = os.path.exists(os.path.join(helsinki_dir, f"{language_code}"))
+        model_path = os.path.join(helsinki_dir, f"opus-mt-{language_code}-en")
+        is_downloaded = os.path.isdir(model_path)
+        if is_downloaded:
+            size = sum(
+                os.path.getsize(os.path.join(model_path, f))
+                for f in os.listdir(model_path)
+                if os.path.isfile(os.path.join(model_path, f))
+            )
+        else:
+            size = 0
 
         translate_models.append(
             {
                 "name": f"Helsinki-NLP/opus-mt-{language_code}-en",
                 "description": f"{language_name} to English",
                 "downloaded": is_downloaded,
-                "size": 0,
+                "size": size,
             }
         )
 
@@ -356,7 +368,7 @@ def models_download():
         if model not in valid_model_names:
             return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
-        local_dir = os.path.join(get_models_dir(), "helsinki", model)
+        local_dir = os.path.join(get_models_dir(), model)
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
 
@@ -375,8 +387,8 @@ def models_download():
         for filename in filenames:
             download_url = f"{base_url}/{filename}"
             local_filename = os.path.join(local_dir, filename)
-            print(f"Key: {key}: Downloading {download_url} to {local_filename}")
 
+            print(f"Key: {key}: Downloading {download_url} to {local_filename}")
             ret = download(download_url, local_filename, key, model)
             if ret != None:
                 return ret
@@ -420,7 +432,7 @@ def models_delete():
     model = request.json.get("model")
     print(f"Deleting model: {feature} {model}")
 
-    if feature not in ["transcribe"]:
+    if feature not in ["transcribe", "translate"]:
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
 
     if feature == "transcribe":
@@ -436,6 +448,20 @@ def models_delete():
             pass
 
         return jsonify({"success": True}), 200
+
+    if feature == "translate":
+        valid_model_names = []
+        for language_code in language_mapping:
+            if language_code != "en":
+                valid_model_names.append(f"Helsinki-NLP/opus-mt-{language_code}-en")
+        if model not in valid_model_names:
+            return jsonify({"success": False, "error": f"Invalid model: {model}"})
+
+        model_path = os.path.join(get_models_dir(), model)
+        shutil.rmtree(model_path, ignore_errors=True)
+        return jsonify({"success": True}), 200
+
+    return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
 
 
 # Transcribe
