@@ -22,7 +22,7 @@
         </div>
         <div class="col-md-2">
             <button v-if="model.downloaded" @click="deleteModel()" class="btn btn-danger">Delete</button>
-            <button v-else-if="model.downloading" @click="cancelDownload()" class="btn btn-warning">Cancel</button>
+            <button v-else-if="isDownloading" @click="cancelDownload()" class="btn btn-warning">Cancel</button>
             <button v-else @click="downloadModel()" class="btn btn-primary">Download</button>
         </div>
     </div>
@@ -76,7 +76,7 @@ const downloadModel = async () => {
         downloadProgress.value = 0;
 
         // Initialize SSE
-        eventSource.value = new EventSource(`${API_URL}/download-progress/${featureName}/${modelName}`);
+        eventSource.value = new EventSource(`${API_URL}/download-progress/${props.featureName}/${props.modelName}`);
         eventSource.value.onmessage = function (event) {
             const progress = parseFloat(event.data);
             downloadProgress.value = progress;

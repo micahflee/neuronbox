@@ -20,9 +20,7 @@
             </div>
 
             <template v-for="model in models.transcribe" :key="model.name">
-                <Model :site="site" :table="table" :itemId="itemId" :field="field" :featureName="transcribe" :model="model"
-                    @refresh-models="refreshModels">
-                </Model>
+                <Model :featureName="'transcribe'" :model="model" @refresh-models="refreshModels"></Model>
             </template>
         </div>
 
@@ -38,9 +36,7 @@
             </div>
 
             <template v-for="model in models.translate" :key="model.name">
-                <Model :site="site" :table="table" :itemId="itemId" :field="field" :featureName="transcribe" :model="model"
-                    @refresh-models="refreshModels">
-                </Model>
+                <Model :featureName="'translate'" :model="model" @refresh-models="refreshModels"></Model>
             </template>
         </div>
     </div>

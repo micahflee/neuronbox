@@ -7,3 +7,5 @@ tqdm
 gunicorn
 gevent
 pyinstaller
+transformers
+sentencepiece

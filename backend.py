@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import traceback
+import subprocess
 
 import requests
 from flask import Flask, jsonify, request, stream_with_context
@@ -94,17 +95,17 @@ def get_download_status_dir():
     return os.path.join(get_config_dir(), "download_status")
 
 
-def create_status_file(key):
+def download_status_file_create(key):
     with open(os.path.join(get_download_status_dir(), f"{key}.status"), "w") as f:
         f.write("0")  # Initially, progress is 0%
 
 
-def update_status_file(key, progress):
+def download_status_file_update(key, progress):
     with open(os.path.join(get_download_status_dir(), f"{key}.status"), "w") as f:
         f.write(str(progress))
 
 
-def read_status_file(key):
+def download_status_file_read(key):
     try:
         with open(os.path.join(get_download_status_dir(), f"{key}.status"), "r") as f:
             return float(f.read().strip())
@@ -114,7 +115,7 @@ def read_status_file(key):
         return 0
 
 
-def delete_status_file(key):
+def download_status_file_delete(key):
     try:
         os.remove(os.path.join(get_download_status_dir(), f"{key}.status"))
     except FileNotFoundError:
@@ -157,6 +158,75 @@ def health():
 # Models
 
 
+def download(download_url, filename, key, model):
+    canceled_early = False
+
+    try:
+        with requests.get(download_url, stream=True) as r:
+            r.raise_for_status()
+            total_size = int(r.headers.get("content-length", 0))
+            block_size = 1024  # 1 Kbyte
+            progress = tqdm(total=total_size, unit="B", unit_scale=True, desc=model)
+            with open(filename, "wb") as f:
+                for data in r.iter_content(block_size):
+                    f.write(data)
+                    progress.update(len(data))
+                    download_status_file_update(key, (progress.n / total_size) * 100)
+
+                    # Canceled early?
+                    if not download_status_file_read(key):
+                        print("Canceled download detected, deleting partial model")
+                        canceled_early = True
+                        try:
+                            os.remove(filename)
+                        except FileNotFoundError:
+                            pass
+                        break
+
+            progress.close()
+
+            download_status_file_delete(key)
+
+            if not canceled_early and total_size != 0 and progress.n != total_size:
+                error_message = "Downloaded data size does not match expected size"
+                print(f"Error: {error_message}")
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": error_message,
+                    }
+                )
+
+    except (
+        requests.ConnectionError,
+        requests.Timeout,
+        requests.RequestException,
+    ) as e:
+        download_status_file_delete(key)
+
+        # Delete the model if the download has started
+        try:
+            os.remove(filename)
+        except FileNotFoundError:
+            pass
+
+        # Specific error handling for each exception type
+        if isinstance(e, requests.ConnectionError):
+            error_message = "Failed to establish a connection. Please check your internet connection."
+        elif isinstance(e, requests.Timeout):
+            error_message = "The request timed out. Please try again later."
+        else:
+            error_message = f"An error occurred while downloading: {str(e)}"
+
+        print(f"Error: {error_message}")
+        return jsonify(
+            {
+                "success": False,
+                "error": error_message,
+            }
+        )
+
+
 @app.route("/models")
 def models():
     # Transcribe models
@@ -191,9 +261,15 @@ def models():
 
     translate_models = []
     for language_code in language_mapping:
+        # Skip English, since we don't translate from English to English
+        if language_code == "en":
+            continue
+
         language_name = language_mapping[language_code]
+
         # TODO: figure out what actual path for downloading these models
         is_downloaded = os.path.exists(os.path.join(helsinki_dir, f"{language_code}"))
+
         translate_models.append(
             {
                 "name": f"Helsinki-NLP/opus-mt-{language_code}-en",
@@ -237,11 +313,11 @@ def models_download():
     feature = request.json.get("feature")
     model = request.json.get("model")
     key = f"{feature}_{model}"
-
     print(f"Starting download: {key}")
-    create_status_file(key)
 
-    if feature not in ["transcribe"]:
+    download_status_file_create(key)
+
+    if feature not in ["transcribe", "translate"]:
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
 
     if feature == "transcribe":
@@ -252,72 +328,42 @@ def models_download():
         filename = os.path.join(get_models_dir(), "whisper", f"{model}.pt")
         print(f"Key: {key}: Downloading {download_url} to {filename}")
 
-        canceled_early = False
+        ret = download(download_url, filename, key, model)
+        if ret != None:
+            return ret
 
-        try:
-            with requests.get(download_url, stream=True) as r:
-                r.raise_for_status()
-                total_size = int(r.headers.get("content-length", 0))
-                block_size = 1024  # 1 Kbyte
-                progress = tqdm(total=total_size, unit="B", unit_scale=True, desc=model)
-                with open(filename, "wb") as f:
-                    for data in r.iter_content(block_size):
-                        f.write(data)
-                        progress.update(len(data))
-                        update_status_file(key, (progress.n / total_size) * 100)
+    elif feature == "translate":
+        valid_model_names = []
+        for language_code in language_mapping:
+            if language_code != "en":
+                valid_model_names.append(f"Helsinki-NLP/opus-mt-{language_code}-en")
+        if model not in valid_model_names:
+            return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
-                        # Canceled early?
-                        if not read_status_file(key):
-                            print("Canceled download detected, deleting partial model")
-                            canceled_early = True
-                            try:
-                                os.remove(filename)
-                            except FileNotFoundError:
-                                pass
-                            break
+        local_dir = os.path.join(get_models_dir(), "helsinki", model)
+        if not os.path.exists(local_dir):
+            os.makedirs(local_dir)
 
-                progress.close()
+        base_url = f"https://huggingface.co/{model}/resolve/main"
+        filenames = [
+            # tokenizer
+            "tokenizer_config.json",
+            "config.json",
+            "source.spm",
+            "target.spm",
+            "vocab.json",
+            # model
+            "pytorch_model.bin",
+            "generation_config.json",
+        ]
+        for filename in filenames:
+            download_url = f"{base_url}/{filename}"
+            local_filename = os.path.join(local_dir, filename)
+            print(f"Key: {key}: Downloading {download_url} to {local_filename}")
 
-                delete_status_file(key)
-
-                if not canceled_early and total_size != 0 and progress.n != total_size:
-                    error_message = "Downloaded data size does not match expected size"
-                    print(f"Error: {error_message}")
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": error_message,
-                        }
-                    )
-
-        except (
-            requests.ConnectionError,
-            requests.Timeout,
-            requests.RequestException,
-        ) as e:
-            delete_status_file(key)
-
-            # Delete the model if the download has started
-            try:
-                os.remove(filename)
-            except FileNotFoundError:
-                pass
-
-            # Specific error handling for each exception type
-            if isinstance(e, requests.ConnectionError):
-                error_message = "Failed to establish a connection. Please check your internet connection."
-            elif isinstance(e, requests.Timeout):
-                error_message = "The request timed out. Please try again later."
-            else:
-                error_message = f"An error occurred while downloading: {str(e)}"
-
-            print(f"Error: {error_message}")
-            return jsonify(
-                {
-                    "success": False,
-                    "error": error_message,
-                }
-            )
+            ret = download(download_url, local_filename, key, model)
+            if ret != None:
+                return ret
 
     return jsonify({"success": True})
 
@@ -327,7 +373,7 @@ def download_progress_route(feature, model):
     def generate():
         key = f"{feature}_{model}"
         while True:
-            progress = read_status_file(key)
+            progress = download_status_file_read(key)
             if progress is not None:
                 yield f"data:{progress}\n\n"
             time.sleep(1)
@@ -345,9 +391,10 @@ def cancel_download():
     feature = request.json.get("feature")
     model = request.json.get("model")
     key = f"{feature}_{model}"
+    print(f"Canceling download: {key}")
 
-    if read_status_file(key) is not None:
-        delete_status_file(key)
+    if download_status_file_read(key) is not None:
+        download_status_file_delete(key)
         return jsonify({"success": True}), 200
     else:
         return (
@@ -360,6 +407,7 @@ def cancel_download():
 def models_delete():
     feature = request.json.get("feature")
     model = request.json.get("model")
+    print(f"Deleting model: {feature} {model}")
 
     if feature not in ["transcribe"]:
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
@@ -401,6 +449,7 @@ def do_transcribe(model, filename):
 def transcribe():
     filename = request.json.get("filename")
     model = request.json.get("model")
+    print(f"Transcribing: {filename} with {model}")
 
     # Validate filename
     try:
@@ -468,11 +517,11 @@ def run_gunicorn_server():
         "workers": multiprocessing.cpu_count() + 1,
         "timeout": 1200,
         "worker_class": "gevent",
+        "errorlog": os.path.join(get_config_dir(), "error.log"),
     }
 
     CustomWSGIApplication(app, options).run()
 
 
 if __name__ == "__main__":
-    # run_gunicorn_server()
-    app.run(host="127.0.0.1", port=52014)
+    run_gunicorn_server()
