@@ -300,7 +300,7 @@ def models():
 
         translate_models.append(
             {
-                "name": f"Helsinki-NLP/opus-mt-{language_code}-en",
+                "name": f"opus-mt-{language_code}-en",
                 "description": f"{language_name} to English",
                 "downloaded": is_downloaded,
                 "size": size,
@@ -364,15 +364,15 @@ def models_download():
         valid_model_names = []
         for language_code in language_mapping:
             if language_code != "en":
-                valid_model_names.append(f"Helsinki-NLP/opus-mt-{language_code}-en")
+                valid_model_names.append(f"opus-mt-{language_code}-en")
         if model not in valid_model_names:
             return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
-        local_dir = os.path.join(get_models_dir(), model)
+        local_dir = os.path.join(get_models_dir(), "Helsinki-NLP", model)
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
 
-        base_url = f"https://huggingface.co/{model}/resolve/main"
+        base_url = f"https://huggingface.co/Helsinki-NLP/{model}/resolve/main"
         filenames = [
             # tokenizer
             "tokenizer_config.json",
@@ -453,11 +453,11 @@ def models_delete():
         valid_model_names = []
         for language_code in language_mapping:
             if language_code != "en":
-                valid_model_names.append(f"Helsinki-NLP/opus-mt-{language_code}-en")
+                valid_model_names.append(f"opus-mt-{language_code}-en")
         if model not in valid_model_names:
             return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
-        model_path = os.path.join(get_models_dir(), model)
+        model_path = os.path.join(get_models_dir(), "Helsinki-NLP", model)
         shutil.rmtree(model_path, ignore_errors=True)
         return jsonify({"success": True}), 200
 

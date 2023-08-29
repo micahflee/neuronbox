@@ -109,13 +109,12 @@ const downloadModel = async () => {
                 message: response.data.error,
                 kind: 'error'
             });
-
-            isDownloading.value = false;
-            downloadProgress.value = 0;
         } else {
             // Refresh models after download
             emit('refresh-models');
         }
+        isDownloading.value = false;
+        downloadProgress.value = 0;
     } catch (error) {
         invoke('message_dialog', {
             title: 'Error downloading model',
