@@ -76,7 +76,7 @@ const downloadModel = async () => {
         downloadProgress.value = 0;
 
         // Initialize SSE
-        eventSource.value = new EventSource(`${API_URL}/download-progress/${props.featureName}/${props.modelName}`);
+        eventSource.value = new EventSource(`${API_URL}/download-progress/${props.featureName}/${props.model.name}`);
         eventSource.value.onmessage = function (event) {
             const progress = parseFloat(event.data);
             downloadProgress.value = progress;

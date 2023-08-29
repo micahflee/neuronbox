@@ -80,7 +80,7 @@ if getattr(sys, "frozen", False):
     whisper.audio.mel_filters = my_mel_filters
 
 
-# Helper functions
+# Helpers
 
 
 def get_config_dir():
@@ -95,31 +95,45 @@ def get_download_status_dir():
     return os.path.join(get_config_dir(), "download_status")
 
 
-def download_status_file_create(key):
-    with open(os.path.join(get_download_status_dir(), f"{key}.status"), "w") as f:
-        f.write("0")  # Initially, progress is 0%
+class DownloadStatus:
+    def __init__(self, key):
+        self.key = key
+        self.progress = 0
+        self.status_filename = os.path.join(get_download_status_dir(), f"{key}.status")
+        self.cancel_filename = os.path.join(get_download_status_dir(), f"{key}.cancel")
 
+        self._load_status()
+        self.update(self.progress)
 
-def download_status_file_update(key, progress):
-    with open(os.path.join(get_download_status_dir(), f"{key}.status"), "w") as f:
-        f.write(str(progress))
+    def _load_status(self):
+        if os.path.exists(self.status_filename):
+            with open(self.status_filename, "r") as f:
+                try:
+                    self.progress = float(f.read())
+                except ValueError:
+                    self.progerss = 0
 
+        self.canceled = os.path.exists(self.cancel_filename)
 
-def download_status_file_read(key):
-    try:
-        with open(os.path.join(get_download_status_dir(), f"{key}.status"), "r") as f:
-            return float(f.read().strip())
-    except FileNotFoundError:
-        return None
-    except ValueError:
-        return 0
+    def update(self, progress):
+        self.progress = progress
+        with open(self.status_filename, "w") as f:
+            f.write(str(progress))
 
+    def cancel(self):
+        self.canceled = True
+        with open(self.cancel_filename, "w") as f:
+            f.write("canceled")
 
-def download_status_file_delete(key):
-    try:
-        os.remove(os.path.join(get_download_status_dir(), f"{key}.status"))
-    except FileNotFoundError:
-        pass
+    def is_canceled(self):
+        self._load_status()
+        return self.canceled
+
+    def clean(self):
+        if os.path.exists(self.status_filename):
+            os.remove(self.status_filename)
+        if os.path.exists(self.cancel_filename):
+            os.remove(self.cancel_filename)
 
 
 # Create folders if they don't exist
@@ -129,9 +143,10 @@ if not os.path.exists(get_models_dir()):
 
 if not os.path.exists(get_download_status_dir()):
     os.makedirs(get_download_status_dir())
-    # Delete any files left over from last time
-    for filename in os.listdir(get_download_status_dir()):
-        os.remove(os.path.join(get_download_status_dir(), filename))
+
+# Delete download status files left over from last time
+for filename in os.listdir(get_download_status_dir()):
+    os.remove(os.path.join(get_download_status_dir(), filename))
 
 
 # Create the flask app
@@ -160,6 +175,7 @@ def health():
 
 def download(download_url, filename, key, model):
     canceled_early = False
+    status = DownloadStatus(key)
 
     try:
         with requests.get(download_url, stream=True) as r:
@@ -171,10 +187,10 @@ def download(download_url, filename, key, model):
                 for data in r.iter_content(block_size):
                     f.write(data)
                     progress.update(len(data))
-                    download_status_file_update(key, (progress.n / total_size) * 100)
+                    status.update((progress.n / total_size) * 100)
 
                     # Canceled early?
-                    if not download_status_file_read(key):
+                    if status.is_canceled():
                         print("Canceled download detected, deleting partial model")
                         canceled_early = True
                         try:
@@ -185,7 +201,7 @@ def download(download_url, filename, key, model):
 
             progress.close()
 
-            download_status_file_delete(key)
+            status.clean()
 
             if not canceled_early and total_size != 0 and progress.n != total_size:
                 error_message = "Downloaded data size does not match expected size"
@@ -202,7 +218,7 @@ def download(download_url, filename, key, model):
         requests.Timeout,
         requests.RequestException,
     ) as e:
-        download_status_file_delete(key)
+        status.clean()
 
         # Delete the model if the download has started
         try:
@@ -315,7 +331,7 @@ def models_download():
     key = f"{feature}_{model}"
     print(f"Starting download: {key}")
 
-    download_status_file_create(key)
+    DownloadStatus(key)
 
     if feature not in ["transcribe", "translate"]:
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
@@ -373,9 +389,8 @@ def download_progress_route(feature, model):
     def generate():
         key = f"{feature}_{model}"
         while True:
-            progress = download_status_file_read(key)
-            if progress is not None:
-                yield f"data:{progress}\n\n"
+            status = DownloadStatus(key)
+            yield f"data:{status.progress}\n\n"
             time.sleep(1)
 
     response = app.response_class(
@@ -393,14 +408,10 @@ def cancel_download():
     key = f"{feature}_{model}"
     print(f"Canceling download: {key}")
 
-    if download_status_file_read(key) is not None:
-        download_status_file_delete(key)
-        return jsonify({"success": True}), 200
-    else:
-        return (
-            jsonify({"success": False, "error": f"Download {key} is not active"}),
-            200,
-        )
+    status = DownloadStatus(key)
+    status.cancel()
+
+    return jsonify({"success": True}), 200
 
 
 @app.route("/models/delete", methods=["POST"])
@@ -514,14 +525,18 @@ class CustomWSGIApplication(BaseApplication):
 def run_gunicorn_server():
     options = {
         "bind": "127.0.0.1:52014",
-        "workers": multiprocessing.cpu_count() + 1,
+        "workers": 4,  # multiprocessing.cpu_count() + 1,
         "timeout": 1200,
         "worker_class": "gevent",
         "errorlog": os.path.join(get_config_dir(), "error.log"),
+        "capture_output": True,
+        "loglevel": "debug",
     }
 
     CustomWSGIApplication(app, options).run()
 
 
 if __name__ == "__main__":
-    run_gunicorn_server()
+    # run_gunicorn_server()
+
+    app.run(debug=True, host="127.0.0.1", port=52014)
