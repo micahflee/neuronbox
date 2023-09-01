@@ -3,6 +3,7 @@ import sys
 import time
 import traceback
 import shutil
+import subprocess
 
 import requests
 from flask import Flask, jsonify, request, stream_with_context
@@ -11,7 +12,8 @@ from tqdm import tqdm
 import appdirs
 
 from gunicorn.app.base import BaseApplication
-import multiprocessing
+
+from pyannote.audio import Pipeline as PyannotePipeline
 
 import whisper
 import whisper.audio
@@ -95,6 +97,11 @@ def get_models_dir():
 
 def get_download_status_dir():
     return os.path.join(get_config_dir(), "download_status")
+
+
+def get_ffmpeg_path():
+    # TODO: if frozen, use the ffmpeg binary in the app bundle
+    return shutil.which("ffmpeg")
 
 
 class DownloadStatus:
@@ -484,12 +491,7 @@ def models_delete():
             return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
         if model == "speaker-diarization":
-            for filename in ["pytorch_model.bin", "config.yaml"]:
-                print(f"Deleting {filename}")
-                try:
-                    os.remove(filename)
-                except FileNotFoundError:
-                    pass
+            shutil.rmtree(os.path.join(get_models_dir(), "pyannote"))
         else:
             filename = os.path.join(get_models_dir(), "whisper", f"{model}.pt")
             print(f"Deleting {filename}")
@@ -520,6 +522,37 @@ def models_delete():
 
 
 def do_transcribe(model, filename):
+    # If filename is not a wav file, convert it
+    if not filename.endswith(".wav"):
+        print(f"Converting {filename} to wav")
+        temp_filename = os.path.join(
+            os.path.dirname(filename), f"{os.path.basename(filename)}.wav"
+        )
+        subprocess.run(
+            [
+                get_ffmpeg_path(),
+                "-i",
+                filename,
+                temp_filename,
+            ],
+            check=True,
+        )
+        filename = temp_filename
+
+    # Speaker diarization
+    print(f"Speaker diarization: {filename}")
+    model_config = os.path.join(get_models_dir(), "pyannote", "config.yaml")
+    print(model_config)
+    pipeline = PyannotePipeline(model_config)
+    diarization = pipeline(filename)
+
+    # Print the results
+    for turn, _, speaker in diarization.itertracks(yield_label=True):
+        print(f"start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}")
+
+    # TODO: take account of different speakers
+
+    # Transcribe
     model = whisper.load_model(
         model, download_root=os.path.join(get_models_dir(), "whisper")
     )
