@@ -86,7 +86,7 @@ if getattr(sys, "frozen", False):
 
 
 def get_config_dir():
-    return appdirs.user_config_dir("neuronbox")
+    return appdirs.user_config_dir("NeuronBox")
 
 
 def get_models_dir():
@@ -252,6 +252,20 @@ def download(download_url, filename, key, model):
 @app.route("/models")
 def models():
     # Transcribe models
+    pyannote_dir = os.path.join(get_models_dir(), "pyannote")
+    if not os.path.exists(pyannote_dir):
+        os.makedirs(pyannote_dir)
+
+    pyannote_model_downloaded = os.path.exists(
+        os.path.join(pyannote_dir, "pytorch_model.bin")
+    )
+    if pyannote_model_downloaded:
+        pyannote_model_size = os.path.getsize(
+            os.path.join(pyannote_dir, "pytorch_model.bin")
+        )
+    else:
+        pyannote_model_size = 0
+
     whisper_dir = os.path.join(get_models_dir(), "whisper")
     if not os.path.exists(whisper_dir):
         os.makedirs(whisper_dir)
@@ -314,6 +328,12 @@ def models():
             "models": {
                 "transcribe": [
                     {
+                        "name": "speaker-diarization",
+                        "description": "Speaker diarization, required for transcription",
+                        "downloaded": pyannote_model_downloaded,
+                        "size": pyannote_model_size,
+                    },
+                    {
                         "name": "small",
                         "description": "Small, requires ~2GB RAM",
                         "downloaded": whispers_small_downloaded,
@@ -351,11 +371,33 @@ def models_download():
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
 
     if feature == "transcribe":
-        if model not in ["small", "medium", "large"]:
+        if model not in ["speaker-diarization", "small", "medium", "large"]:
             return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
-        download_url = whisper._MODELS[model]
-        filename = os.path.join(get_models_dir(), "whisper", f"{model}.pt")
+        if model == "speaker-diarization":
+            download_url = "https://github.com/micahflee/neuronbox/releases/download/models/pytorch_model.bin"
+            filename = os.path.join(get_models_dir(), "pyannote", "pytorch_model.bin")
+
+            # While we're at it, go ahead and manually create the config.yaml instead of downloading
+            config_filename = os.path.join(get_models_dir(), "pyannote", "config.yaml")
+            if not os.path.exists(config_filename):
+                with open(config_filename, "w") as f:
+                    f.write(
+                        f"""pipeline:
+  name: pyannote.audio.pipelines.VoiceActivityDetection
+  params:
+    segmentation: {filename}
+
+params:
+  min_duration_off: 0.09791355693027545
+  min_duration_on: 0.05537587440407595
+  offset: 0.4806866463041527
+  onset: 0.8104268538848918"""
+                    )
+        else:
+            download_url = whisper._MODELS[model]
+            filename = os.path.join(get_models_dir(), "whisper", f"{model}.pt")
+
         print(f"Key: {key}: Downloading {download_url} to {filename}")
 
         ret = download(download_url, filename, key, model)
@@ -438,16 +480,24 @@ def models_delete():
         return jsonify({"success": False, "error": f"Invalid feature: {feature}"})
 
     if feature == "transcribe":
-        if model not in ["small", "medium", "large"]:
+        if model not in ["speaker-diarization", "small", "medium", "large"]:
             return jsonify({"success": False, "error": f"Invalid model: {model}"})
 
-        filename = os.path.join(get_models_dir(), "whisper", f"{model}.pt")
-        print(f"Deleting {filename}")
+        if model == "speaker-diarization":
+            for filename in ["pytorch_model.bin", "config.yaml"]:
+                print(f"Deleting {filename}")
+                try:
+                    os.remove(filename)
+                except FileNotFoundError:
+                    pass
+        else:
+            filename = os.path.join(get_models_dir(), "whisper", f"{model}.pt")
+            print(f"Deleting {filename}")
 
-        try:
-            os.remove(filename)
-        except FileNotFoundError:
-            pass
+            try:
+                os.remove(filename)
+            except FileNotFoundError:
+                pass
 
         return jsonify({"success": True}), 200
 

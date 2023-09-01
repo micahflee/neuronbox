@@ -9,3 +9,5 @@ gevent
 pyinstaller
 transformers
 sentencepiece
+pydub
+git+https://github.com/pyannote/pyannote-audio.git@develop#egg=pyannote-audio
