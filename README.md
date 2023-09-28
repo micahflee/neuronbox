@@ -48,6 +48,13 @@ You generally won't have to build this yourself -- Tauri will do this for you wh
 
 You need Rust installed. Tauri handles building the frontend for you.
 
+Install `tauri-cli`:
+
+```sh
+cargo install tauri-cli
+```
+
+
 Start the app:
 
 ```sh
